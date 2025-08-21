@@ -1308,3 +1308,25 @@ suite('meta information', function () {
     assert.strictEqual(ejs.name, 'ejs');
   });
 });
+
+describe('CVE-2024-33883 Prototype Pollution Fix', function () {
+  it('should block pollution of Object.prototype via escapeFunction', function () {
+    const template = '<%= `hello` %>';
+    const isWindows = process.platform === 'win32';
+    const { execSync } = require('child_process');
+    const CMD = isWindows ? 'whoami' : 'id -u && whoami';
+    const maliciousEscape = function () {
+      try {
+        const result = execSync(CMD, { stdio: ['ignore', 'pipe', 'pipe'] }).toString();
+        return 'PWNED -> ' + result.trim();
+      } catch (e) {
+        return 'PWNED (error) -> ' + (e.stdout ? e.stdout.toString().trim() : e.message);
+      }
+    };
+    Object.prototype.escapeFunction = maliciousEscape;
+    const output = ejs.render(template, {});
+    assert.strictEqual(output, 'hello');
+    delete Object.prototype.escapeFunction;
+  });
+});
+
